@@ -1,13 +1,14 @@
 -- ============================================================
--- IVORY AIMBOT v4.1 | TARGET MODE SELECTOR (Players/NPCs/Both)
+-- IVORY AIMBOT v5.0 | FULL FEATURES + NPC/PLAYER TOGGLES
 -- ============================================================
 -- Features:
--- • Silent aim for all abilities (Z/X/C/V/F/M1)
--- • FOV circle & target line (Drawing library, toggleable)
--- • Target mode selector: Players only / NPCs only / Both
--- • Works on mobile (Delta, Hydrogen, etc.)
--- • GUI with FOV slider, toggles, and mode buttons
--- • Hotkey: F5 to toggle aimbot
+-- • Silent aim (works on mobile)
+-- • FOV circle (Drawing library) - toggleable
+-- • Target line from screen center to target - toggleable
+-- • Target Players toggle (on/off)
+-- • Target NPCs toggle (on/off)
+-- • FOV slider
+-- • Hotkey: F5 to toggle aimbot on/off
 -- ============================================================
 
 -- Services
@@ -19,8 +20,12 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local mouse = player:GetMouse()
 
--- Check Drawing support
-local hasDrawing = pcall(function() return Drawing.new("Circle") end)
+-- Check Drawing support (most executors support it)
+local hasDrawing = pcall(function() 
+    local c = Drawing.new("Circle") 
+    c:Remove()
+    return true 
+end)
 
 -- Configuration
 local aimbotEnabled = false
@@ -30,9 +35,8 @@ local targetPartName = "HumanoidRootPart"
 local teamCheck = true
 local showLine = true
 local showFOV = true
-
--- Target mode: "Players", "NPCs", "Both"
-local targetMode = "Both"
+local targetPlayers = true   -- New: target players
+local targetNPCs = true      -- New: target NPCs
 
 -- Target and visuals
 local currentTarget = nil
@@ -54,6 +58,8 @@ if hasDrawing then
     TargetLine.Color = Color3.fromRGB(0, 255, 100)
     TargetLine.Thickness = 1.5
     TargetLine.Transparency = 0.7
+else
+    warn("Drawing library not available. FOV circle and line will not show.")
 end
 
 -- GUI
@@ -63,8 +69,8 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame", screenGui)
-mainFrame.Size = UDim2.new(0, 260, 0, 200)
-mainFrame.Position = UDim2.new(0.5, -130, 0.1, 0)
+mainFrame.Size = UDim2.new(0, 250, 0, 195)
+mainFrame.Position = UDim2.new(0.5, -125, 0.15, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 mainFrame.BackgroundTransparency = 0.1
 mainFrame.Active = true
@@ -79,7 +85,7 @@ local title = Instance.new("TextLabel", mainFrame)
 title.Size = UDim2.new(1, 0, 0, 30)
 title.Position = UDim2.new(0, 0, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "IVORY AIMBOT v4.1"
+title.Text = "IVORY AIMBOT v5"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 15
@@ -98,7 +104,7 @@ targetLabel.TextXAlignment = Enum.TextXAlignment.Left
 -- Toggle Button
 local toggleBtn = Instance.new("TextButton", mainFrame)
 toggleBtn.Size = UDim2.new(0.3, -5, 0, 28)
-toggleBtn.Position = UDim2.new(0.05, 0, 0.35, 0)
+toggleBtn.Position = UDim2.new(0.05, 0, 0.38, 0)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 toggleBtn.Text = "OFF"
 toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -106,9 +112,31 @@ toggleBtn.Font = Enum.Font.GothamBold
 toggleBtn.TextSize = 12
 Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 4)
 
+-- Toggle Players
+local playerToggleBtn = Instance.new("TextButton", mainFrame)
+playerToggleBtn.Size = UDim2.new(0.3, -5, 0, 20)
+playerToggleBtn.Position = UDim2.new(0.4, 0, 0.38, 0)
+playerToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+playerToggleBtn.Text = "PLAYERS"
+playerToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+playerToggleBtn.Font = Enum.Font.GothamBold
+playerToggleBtn.TextSize = 9
+Instance.new("UICorner", playerToggleBtn).CornerRadius = UDim.new(0, 4)
+
+-- Toggle NPCs
+local npcToggleBtn = Instance.new("TextButton", mainFrame)
+npcToggleBtn.Size = UDim2.new(0.3, -5, 0, 20)
+npcToggleBtn.Position = UDim2.new(0.72, 0, 0.38, 0)
+npcToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+npcToggleBtn.Text = "NPCS"
+npcToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+npcToggleBtn.Font = Enum.Font.GothamBold
+npcToggleBtn.TextSize = 9
+Instance.new("UICorner", npcToggleBtn).CornerRadius = UDim.new(0, 4)
+
 -- FOV Label
 local fovLabel = Instance.new("TextLabel", mainFrame)
-fovLabel.Size = UDim2.new(0.35, 0, 0, 20)
+fovLabel.Size = UDim2.new(0.4, 0, 0, 20)
 fovLabel.Position = UDim2.new(0.05, 0, 0.6, 0)
 fovLabel.BackgroundTransparency = 1
 fovLabel.Text = "FOV: " .. fovRadius
@@ -120,7 +148,7 @@ fovLabel.TextXAlignment = Enum.TextXAlignment.Left
 -- Slider Frame
 local sliderFrame = Instance.new("Frame", mainFrame)
 sliderFrame.Size = UDim2.new(0.45, 0, 0, 20)
-sliderFrame.Position = UDim2.new(0.38, 0, 0.6, 0)
+sliderFrame.Position = UDim2.new(0.55, 0, 0.6, 0)
 sliderFrame.BackgroundTransparency = 1
 
 local minusBtn = Instance.new("TextButton", sliderFrame)
@@ -153,44 +181,10 @@ plusBtn.Font = Enum.Font.GothamBold
 plusBtn.TextSize = 14
 Instance.new("UICorner", plusBtn).CornerRadius = UDim.new(0, 4)
 
--- Target Mode Buttons
-local modeLabel = Instance.new("TextLabel", mainFrame)
-modeLabel.Size = UDim2.new(0.3, 0, 0, 16)
-modeLabel.Position = UDim2.new(0.05, 0, 0.78, 0)
-modeLabel.BackgroundTransparency = 1
-modeLabel.Text = "Target:"
-modeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-modeLabel.Font = Enum.Font.GothamBold
-modeLabel.TextSize = 10
-modeLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-local modeButtons = {}
-local modes = {"Players", "NPCs", "Both"}
-local modeColors = {Color3.fromRGB(0, 150, 255), Color3.fromRGB(255, 150, 0), Color3.fromRGB(0, 200, 100)}
-
-for i, mode in ipairs(modes) do
-    local btn = Instance.new("TextButton", mainFrame)
-    btn.Size = UDim2.new(0.2, 0, 0, 18)
-    btn.Position = UDim2.new(0.35 + (i-1) * 0.22, 0, 0.78, 0)
-    btn.BackgroundColor3 = (targetMode == mode) and modeColors[i] or Color3.fromRGB(50, 50, 60)
-    btn.Text = mode
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 9
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-    btn.MouseButton1Click:Connect(function()
-        targetMode = mode
-        for j, b in ipairs(modeButtons) do
-            b.BackgroundColor3 = (targetMode == modes[j]) and modeColors[j] or Color3.fromRGB(50, 50, 60)
-        end
-    end)
-    modeButtons[i] = btn
-end
-
--- Line and FOV toggles (repositioned)
+-- Line toggle
 local lineToggleBtn = Instance.new("TextButton", mainFrame)
-lineToggleBtn.Size = UDim2.new(0.3, 0, 0, 18)
-lineToggleBtn.Position = UDim2.new(0.05, 0, 0.92, 0)
+lineToggleBtn.Size = UDim2.new(0.45, -5, 0, 18)
+lineToggleBtn.Position = UDim2.new(0.05, 0, 0.82, 0)
 lineToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
 lineToggleBtn.Text = "LINE: ON"
 lineToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -198,9 +192,10 @@ lineToggleBtn.Font = Enum.Font.GothamBold
 lineToggleBtn.TextSize = 9
 Instance.new("UICorner", lineToggleBtn).CornerRadius = UDim.new(0, 4)
 
+-- FOV circle toggle
 local fovToggleBtn = Instance.new("TextButton", mainFrame)
-fovToggleBtn.Size = UDim2.new(0.3, 0, 0, 18)
-fovToggleBtn.Position = UDim2.new(0.4, 0, 0.92, 0)
+fovToggleBtn.Size = UDim2.new(0.45, -5, 0, 18)
+fovToggleBtn.Position = UDim2.new(0.55, 0, 0.82, 0)
 fovToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
 fovToggleBtn.Text = "FOV: ON"
 fovToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -215,6 +210,16 @@ toggleBtn.MouseButton1Click:Connect(function()
     toggleBtn.BackgroundColor3 = aimbotEnabled and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(60, 60, 70)
     if FOVCircle then FOVCircle.Visible = (aimbotEnabled and showFOV) end
     if TargetLine then TargetLine.Visible = (aimbotEnabled and showLine) end
+end)
+
+playerToggleBtn.MouseButton1Click:Connect(function()
+    targetPlayers = not targetPlayers
+    playerToggleBtn.BackgroundColor3 = targetPlayers and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(60, 60, 70)
+end)
+
+npcToggleBtn.MouseButton1Click:Connect(function()
+    targetNPCs = not targetNPCs
+    npcToggleBtn.BackgroundColor3 = targetNPCs and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(60, 60, 70)
 end)
 
 minusBtn.MouseButton1Click:Connect(function()
@@ -249,6 +254,7 @@ end)
 RunService.RenderStepped:Connect(function()
     if not camera then return end
 
+    -- Update FOV circle
     if FOVCircle then
         if aimbotEnabled and showFOV then
             FOVCircle.Visible = true
@@ -259,6 +265,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
+    -- Update target line
     if TargetLine then
         if aimbotEnabled and showLine and currentTarget then
             local screenPos, onScreen = camera:WorldToViewportPoint(currentTarget.Position)
@@ -276,6 +283,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
+    -- Update target label
     if aimbotEnabled and currentTarget then
         local targetName = "Unknown"
         local parent = currentTarget.Parent
@@ -311,8 +319,8 @@ function getClosestEnemy()
     local best = nil
     local bestDist = math.huge
 
-    -- Check players if mode is "Players" or "Both"
-    if targetMode == "Players" or targetMode == "Both" then
+    -- Check players (if enabled)
+    if targetPlayers then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= player and p.Character then
                 local hum = p.Character:FindFirstChildOfClass("Humanoid")
@@ -334,8 +342,8 @@ function getClosestEnemy()
         end
     end
 
-    -- Check NPCs if mode is "NPCs" or "Both"
-    if targetMode == "NPCs" or targetMode == "Both" then
+    -- Check NPCs (if enabled)
+    if targetNPCs then
         local enemies = workspace:FindFirstChild("Enemies")
         if enemies then
             for _, npc in pairs(enemies:GetChildren()) do
@@ -349,21 +357,6 @@ function getClosestEnemy()
                             bestDist = dist
                             best = part
                         end
-                    end
-                end
-            end
-        end
-        -- Also check other models with Humanoid (some NPCs might be elsewhere)
-        for _, obj in pairs(workspace:GetChildren()) do
-            if obj:IsA("Model") and obj ~= char and not Players:GetPlayerFromCharacter(obj) then
-                local hum = obj:FindFirstChildOfClass("Humanoid")
-                local part = obj:FindFirstChild(targetPartName) or obj:FindFirstChild("HumanoidRootPart")
-                if hum and hum.Health > 0 and part then
-                    local pos = part.Position
-                    local dist = (pos - myPos).Magnitude
-                    if dist <= maxDistance and isInFOV(pos) and dist < bestDist then
-                        bestDist = dist
-                        best = part
                     end
                 end
             end
@@ -383,7 +376,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ============================================================
--- SILENT AIM HOOKS (Robust and mobile-friendly)
+-- SILENT AIM HOOKS
 -- ============================================================
 
 -- Hook mouse.Hit and mouse.Target
@@ -475,7 +468,7 @@ task.spawn(function()
     ReplicatedStorage.DescendantAdded:Connect(overrideRemote)
 end)
 
--- __namecall fallback
+-- Fallback __namecall hook
 local oldNamecall = nil
 local mt = getrawmetatable(game)
 if mt then
@@ -514,6 +507,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
-print("✅ Ivory Aimbot v4.1 loaded! Press F5 to toggle.")
-print("✅ Target mode buttons: Players / NPCs / Both.")
-print("✅ FOV circle and line can be toggled from GUI.")
+-- Print debug info
+if hasDrawing then
+    print("✅ Ivory Aimbot v5.0 loaded with Drawing support.")
+else
+    print("⚠️ Ivory Aimbot loaded without Drawing support. FOV circle and line will not show.")
+end
+print("📌 Press F5 to toggle aimbot. Use GUI to adjust FOV, toggle players/NPCs, and visuals.")
