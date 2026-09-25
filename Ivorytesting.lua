@@ -1,25 +1,35 @@
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 
+-- FULL BRIGHT / LIGHT GRAPHICS
+Lighting.Brightness = 3
+Lighting.ClockTime = 14
+Lighting.GlobalShadows = false
+Lighting.FogStart = 0
+Lighting.FogEnd = 100000
+Lighting.EnvironmentDiffuseScale = 0
+Lighting.EnvironmentSpecularScale = 0
+
+-- Lower terrain detail
+local terrain = Workspace:FindFirstChildOfClass("Terrain")
+
+if terrain then
+	pcall(function()
+		terrain.Decoration = false
+		terrain.WaterWaveSize = 0
+		terrain.WaterWaveSpeed = 0
+		terrain.WaterReflectance = 0
+	end)
+end
+
+-- Disable only the expensive visual effects
 local function optimize(obj)
-	-- Keep some particles, but reduce how many are rendered
-	if obj:IsA("ParticleEmitter") then
-		pcall(function()
-			obj.Rate = math.min(obj.Rate, 10)
-			obj.Lifetime = NumberRange.new(
-				math.min(obj.Lifetime.Min, 1),
-				math.min(obj.Lifetime.Max, 2)
-			)
-		end)
-
-	-- Disable the heavier effects
-	elseif obj:IsA("Smoke") then
+	if obj:IsA("PostEffect") then
 		obj.Enabled = false
 
-	elseif obj:IsA("Fire") then
-		obj.Enabled = false
-
-	elseif obj:IsA("Sparkles") then
+	elseif obj:IsA("Smoke")
+		or obj:IsA("Fire")
+		or obj:IsA("Sparkles") then
 		obj.Enabled = false
 
 	elseif obj:IsA("Beam") then
@@ -28,74 +38,39 @@ local function optimize(obj)
 	elseif obj:IsA("Trail") then
 		obj.Enabled = false
 
-	-- Disable post-processing
-	elseif obj:IsA("PostEffect") then
-		obj.Enabled = false
-
-	-- Make meshes cheaper
-	elseif obj:IsA("MeshPart") then
+	elseif obj:IsA("ParticleEmitter") then
+		-- Keep particles, just reduce their amount
 		pcall(function()
-			obj.RenderFidelity = Enum.RenderFidelity.Performance
-			obj.CastShadow = false
+			obj.Rate = math.min(obj.Rate, 20)
 		end)
 
-	-- Remove expensive shadows while keeping materials
 	elseif obj:IsA("BasePart") then
+		-- Shadows are expensive but this doesn't change appearance much
 		pcall(function()
 			obj.CastShadow = false
 		end)
 	end
 end
 
-local function optimize()
-	-- FULL BRIGHT
-	Lighting.Brightness = 3
-	Lighting.ClockTime = 14
-	Lighting.GlobalShadows = false
-	Lighting.FogStart = 0
-	Lighting.FogEnd = 100000
-	Lighting.EnvironmentDiffuseScale = 0
-	Lighting.EnvironmentSpecularScale = 0
-
-	-- Terrain
-	local terrain = Workspace:FindFirstChildOfClass("Terrain")
-	if terrain then
-		pcall(function()
-			terrain.Decoration = false
-			terrain.WaterWaveSize = 0
-			terrain.WaterWaveSpeed = 0
-			terrain.WaterReflectance = 0
-		end)
-	end
-
-	-- Optimize loaded objects
-	for _, obj in ipairs(Workspace:GetDescendants()) do
-		optimize(obj)
-	end
-
-	for _, obj in ipairs(Lighting:GetChildren()) do
-		optimize(obj)
-	end
+-- Optimize existing objects ONCE
+for _, obj in ipairs(game:GetDescendants()) do
+	optimize(obj)
 end
 
--- Initial optimization
-optimize()
-
--- Handle effects created later
+-- Optimize new effects without repeatedly scanning the whole game
 game.DescendantAdded:Connect(function(obj)
 	task.defer(function()
 		optimize(obj)
 	end)
 end)
 
--- Keep important settings active
+-- Keep only the lighting settings enforced
 task.spawn(function()
 	while true do
 		Lighting.GlobalShadows = false
 		Lighting.Brightness = 3
 		Lighting.EnvironmentDiffuseScale = 0
 		Lighting.EnvironmentSpecularScale = 0
-
-		task.wait(1)
+		task.wait(2)
 	end
 end)
