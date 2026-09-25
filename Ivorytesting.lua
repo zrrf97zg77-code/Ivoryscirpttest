@@ -2,66 +2,70 @@ local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
-local function optimize(obj)
-	if obj:IsA("ParticleEmitter")
+local function disableEffect(obj)
+	if obj:IsA("PostEffect")
+		or obj:IsA("ParticleEmitter")
 		or obj:IsA("Trail")
 		or obj:IsA("Beam")
 		or obj:IsA("Smoke")
 		or obj:IsA("Fire")
 		or obj:IsA("Sparkles") then
-		obj.Enabled = false
-	end
 
-	if obj:IsA("PostEffect") then
-		obj.Enabled = false
+		pcall(function()
+			obj.Enabled = false
+		end)
 	end
 end
 
-local function applyLiteGraphics()
+local function optimize()
 	-- FULL BRIGHT
 	Lighting.Brightness = 3
 	Lighting.ClockTime = 14
 	Lighting.GlobalShadows = false
+	Lighting.FogStart = 0
 	Lighting.FogEnd = 100000
 	Lighting.EnvironmentDiffuseScale = 0
 	Lighting.EnvironmentSpecularScale = 0
 
-	-- LOW TERRAIN DETAIL
+	-- Disable every lighting/post effect
+	for _, obj in ipairs(Lighting:GetChildren()) do
+		disableEffect(obj)
+	end
+
+	-- Disable effects anywhere in the game
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		disableEffect(obj)
+	end
+
+	-- Reduce terrain detail
 	local terrain = Workspace:FindFirstChildOfClass("Terrain")
 	if terrain then
 		terrain.Decoration = false
 	end
-
-	-- DISABLE EFFECTS
-	for _, obj in ipairs(game:GetDescendants()) do
-		optimize(obj)
-	end
-
-	-- LOWEST GRAPHICS QUALITY
-	pcall(function()
-		settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-	end)
 end
 
--- APPLY IMMEDIATELY
-applyLiteGraphics()
+-- New effects get disabled immediately
+game.DescendantAdded:Connect(function(obj)
+	task.defer(function()
+		disableEffect(obj)
+	end)
+end)
 
--- KEEP IT ACTIVE
-local timer = 0
+-- Keep lighting enforced every frame
+RunService.RenderStepped:Connect(function()
+	Lighting.Brightness = 3
+	Lighting.GlobalShadows = false
+	Lighting.FogEnd = 100000
+	Lighting.EnvironmentDiffuseScale = 0
+	Lighting.EnvironmentSpecularScale = 0
+end)
 
-RunService.RenderStepped:Connect(function(dt)
-	timer += dt
-
-	-- Reapply every 0.5 seconds
-	if timer >= 0.5 then
-		timer = 0
-		applyLiteGraphics()
+-- Heavy optimization pass
+task.spawn(function()
+	while true do
+		optimize()
+		task.wait(0.25)
 	end
 end)
 
--- Catch effects as soon as they're created
-game.DescendantAdded:Connect(function(obj)
-	task.defer(function()
-		optimize(obj)
-	end)
-end)
+optimize()
