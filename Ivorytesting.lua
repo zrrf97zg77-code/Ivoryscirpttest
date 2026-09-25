@@ -1,64 +1,67 @@
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
--- FULL BRIGHT
-Lighting.Brightness = 3
-Lighting.ClockTime = 14
-Lighting.FogEnd = 100000
-Lighting.FogStart = 0
-Lighting.GlobalShadows = false
-Lighting.EnvironmentDiffuseScale = 0
-Lighting.EnvironmentSpecularScale = 0
-
--- REMOVE LIGHTING EFFECTS
-for _, effect in ipairs(Lighting:GetChildren()) do
-	if effect:IsA("PostEffect") then
-		effect.Enabled = false
-	end
-end
-
--- DISABLE TERRAIN DECORATION
-local terrain = Workspace:FindFirstChildOfClass("Terrain")
-if terrain then
-	terrain.Decoration = false
-end
-
--- REMOVE PARTICLE / EFFECT HEAVINESS
 local function optimize(obj)
-	if obj:IsA("ParticleEmitter") then
+	if obj:IsA("ParticleEmitter")
+		or obj:IsA("Trail")
+		or obj:IsA("Beam")
+		or obj:IsA("Smoke")
+		or obj:IsA("Fire")
+		or obj:IsA("Sparkles") then
 		obj.Enabled = false
-	elseif obj:IsA("Trail") then
-		obj.Enabled = false
-	elseif obj:IsA("Beam") then
-		obj.Enabled = false
-	elseif obj:IsA("Smoke") then
-		obj.Enabled = false
-	elseif obj:IsA("Fire") then
-		obj.Enabled = false
-	elseif obj:IsA("Sparkles") then
-		obj.Enabled = false
-	elseif obj:IsA("BloomEffect")
-		or obj:IsA("BlurEffect")
-		or obj:IsA("ColorCorrectionEffect")
-		or obj:IsA("SunRaysEffect")
-		or obj:IsA("DepthOfFieldEffect") then
+	end
+
+	if obj:IsA("PostEffect") then
 		obj.Enabled = false
 	end
 end
 
--- APPLY TO EXISTING OBJECTS
-for _, obj in ipairs(game:GetDescendants()) do
-	optimize(obj)
+local function applyLiteGraphics()
+	-- FULL BRIGHT
+	Lighting.Brightness = 3
+	Lighting.ClockTime = 14
+	Lighting.GlobalShadows = false
+	Lighting.FogEnd = 100000
+	Lighting.EnvironmentDiffuseScale = 0
+	Lighting.EnvironmentSpecularScale = 0
+
+	-- LOW TERRAIN DETAIL
+	local terrain = Workspace:FindFirstChildOfClass("Terrain")
+	if terrain then
+		terrain.Decoration = false
+	end
+
+	-- DISABLE EFFECTS
+	for _, obj in ipairs(game:GetDescendants()) do
+		optimize(obj)
+	end
+
+	-- LOWEST GRAPHICS QUALITY
+	pcall(function()
+		settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+	end)
 end
 
--- OPTIMIZE NEW EFFECTS THAT GET CREATED
+-- APPLY IMMEDIATELY
+applyLiteGraphics()
+
+-- KEEP IT ACTIVE
+local timer = 0
+
+RunService.RenderStepped:Connect(function(dt)
+	timer += dt
+
+	-- Reapply every 0.5 seconds
+	if timer >= 0.5 then
+		timer = 0
+		applyLiteGraphics()
+	end
+end)
+
+-- Catch effects as soon as they're created
 game.DescendantAdded:Connect(function(obj)
 	task.defer(function()
 		optimize(obj)
 	end)
-end)
-
--- LOWER QUALITY
-pcall(function()
-	settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
 end)
